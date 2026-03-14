@@ -271,13 +271,23 @@ class EkfPublisher(Node):
         self.pos_y = msg.pose.pose.position.y
         self.pos_z = msg.pose.pose.position.z
 
-        self.vel_x = msg.twist.twist.linear.x
-        self.vel_y = msg.twist.twist.linear.y
-        self.vel_z = msg.twist.twist.linear.z
+        # Odometry twist is expressed in child_frame_id (base_link here),
+        # so these are body-frame velocities.
+        vx_b = msg.twist.twist.linear.x
+        vy_b = msg.twist.twist.linear.y
+        vz_b = msg.twist.twist.linear.z
 
-        self.roll_rate = msg.twist.twist.angular.x
-        self.pitch_rate = msg.twist.twist.angular.y
-        self.yaw_rate = msg.twist.twist.angular.z
+        self.vel_x = vx_b
+        self.vel_y = vy_b
+        self.vel_z = vz_b
+
+        wx = msg.twist.twist.angular.x
+        wy = msg.twist.twist.angular.y
+        wz = msg.twist.twist.angular.z
+
+        self.roll_rate = wx
+        self.pitch_rate = wy
+        self.yaw_rate = wz
 
         self.acc_x = 0.0
         self.acc_y = 0.0
@@ -286,14 +296,20 @@ class EkfPublisher(Node):
         if self.last_odom_time is not None:
             dt = t - self.last_odom_time
             if dt > 0.0:
-                self.acc_x = (self.vel_x - self.last_vel_x) / dt
-                self.acc_y = (self.vel_y - self.last_vel_y) / dt
-                self.acc_z = (self.vel_z - self.last_vel_z) / dt
+                dvx_b = (vx_b - self.last_vel_x) / dt
+                dvy_b = (vy_b - self.last_vel_y) / dt
+                dvz_b = (vz_b - self.last_vel_z) / dt
+
+                # Acceleration expressed in the rotating body frame:
+                # a_body = d(v_body)/dt + omega x v_body
+                self.acc_x = dvx_b + wy * vz_b - wz * vy_b
+                self.acc_y = dvy_b + wz * vx_b - wx * vz_b
+                self.acc_z = dvz_b + wx * vy_b - wy * vx_b
 
         self.last_odom_time = t
-        self.last_vel_x = self.vel_x
-        self.last_vel_y = self.vel_y
-        self.last_vel_z = self.vel_z
+        self.last_vel_x = vx_b
+        self.last_vel_y = vy_b
+        self.last_vel_z = vz_b
 
         self.have_odom = True
 

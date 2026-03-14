@@ -1,143 +1,103 @@
-# 🏎️ BGRacing Driverless Simulator (ROS 2 Jazzy)
-
-![ROS 2 Jazzy](https://img.shields.io/badge/ROS_2-Jazzy-blue?logo=ros&logoColor=white)
-![Gazebo Sim](https://img.shields.io/badge/Simulator-Gazebo_Sim-orange?logo=gazebo&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-green)
-
-A high-fidelity simulation environment for the **BGRacing Formula Student Team**.
-Built on **ROS 2 Jazzy** and **Gazebo Sim (GZ)**, utilizing `ros2_control` for accurate vehicle dynamics and Ackermann steering.
+# Run First Smoke Test
 
 ---
 
-## 📸 Gallery & Demos
-
-### Simulation Environment
-![Simulation View](/doc/Car1.png)
-
-
-### Driving Demo + LiDAR Sim
-
-
-https://github.com/user-attachments/assets/a613b591-cd07-49bc-b930-c8c4ba2a1f91
-
-
-
-### Driving Demo + Localization Sim
-
-https://github.com/user-attachments/assets/27b3cb61-808b-4af2-99aa-c85f0a2a9ecf
-
-
-
-
----
-
-## 🚀 Features
-
-* **Custom Ackermann Steering:** Realistic geometry with mimic joints for visualization.
-* **ROS 2 Control Integration:** Velocity and Position controllers for precise wheel command.
-* **Dynamic Tracks:** Load CSV based tracks (cones) directly into the simulation.
-* **Interactive Tools:**
-    * `track_gui.py`: Visual track selection and management.
-    * `car_dashboard.py`: Real-time vehicle telemetry.
-* **Sensor Simulation:** Simulated Odometry, IMU (via Gazebo plugins), and Cameras.
-
----
-
-## 🛠️ Installation & Prerequisites
-
-### 1. System Requirements
-* **OS:** Ubuntu 24.04 LTS (Noble Numbat)
-* **ROS:** ROS 2 Jazzy Jalisco
-
-### 2. Install Dependencies
-Run the following commands to install all necessary packages for ROS 2 Jazzy and Gazebo:
+## Terminal 1 - Start Gazebo
 
 ```bash
-sudo apt update
-sudo apt install -y \
-    ros-jazzy-ros2-control \
-    ros-jazzy-ros2-controllers \
-    ros-jazzy-xacro \
-    ros-jazzy-ros-gz-* \
-    ros-jazzy-*-ros2-control \
-    ros-jazzy-joint-state-publisher-gui \
-    ros-jazzy-turtlesim \
-    ros-jazzy-robot-localization \
-    ros-jazzy-joy \
-    ros-jazzy-joy-teleop \
-    ros-jazzy-tf-transformations
-```
-
-### 3. Clone & Build
-Create a workspace and clone the repository:
-
-```bash
-mkdir -p ~/bgr_ws/src
-cd ~/bgr_ws/src
-git clone https://github.com/shaharhalevi/bgr_simulator.git .
-```
-
-Install python dependencies (if any) and build the workspace:
-
-```bash
-cd ~/bgr_ws
-rosdep install --from-paths src --ignore-src -r -y
-colcon build --symlink-install
-```
-
----
-
-## 🏁 How to Run
-
-Open separate terminals for each step (or use functionality like Tmux/Terminator). Always source your workspace in every new terminal:
-
-```bash
+source /opt/ros/jazzy/setup.bash
 source ~/bgr_ws/install/setup.bash
+env -u WAYLAND_DISPLAY \
+  LIBGL_DRI3_DISABLE=1 \
+  QT_QPA_PLATFORM=xcb \
+  ros2 launch bgr_description gazebo.launch.py
 ```
 
-### Step 1: Launch the Simulation
-This loads the track, the robot model (bgr_description), and the Gazebo environment.
+---
+
+### Check in another terminal - expect frequency above 35 Hz
 
 ```bash
-ros2 launch bgr_description gazebo.launch.py
+ros2 topic list | egrep '(/clock|/model/bgr/odometry|/robot/datalogger_gt|/robot/datalogger_noisy|/robot/mcu_gt|/robot/mcu_noisy)'
+ros2 topic hz /model/bgr/odometry
 ```
 
-**Tip:** This also starts the car_dashboard and track_gui automatically.
+---
 
-### Step 2: Activate Controllers
-Once the simulation is running, spawn the ros2_control managers:
+## Terminal 2 - Activate the BGR controllers
 
 ```bash
+source /opt/ros/jazzy/setup.bash
+source ~/bgr_ws/install/setup.bash
 ros2 launch bgr_controller controller.launch.py
 ```
 
-You should see output confirming `joint_state_broadcaster`, `forward_velocity_controller`, and `forward_position_controller` are active.
+---
 
-### Step 3: Drive the Car (Keyboard Teleop)
-To drive the car using your keyboard, run the teleoperation script:
+## Terminal 3 - Reset car position
 
 ```bash
-ros2 run bgr_controller keyboard_teleop.py
+source /opt/ros/jazzy/setup.bash
+source ~/bgr_ws/install/setup.bash
+ros2 run autonomous_car_sim reset_position
 ```
 
-**Controls:**
-- Use **Arrow Keys** or **WASD** to control the car
-- **Space** to brake/stop
-- **Q** to quit the teleop node
-- Ensure the terminal running the script has focus for keyboard input to work
+---
+
+### before terminal 4 - make sure to spawn track 'Competition1'
 
 ---
 
+## Terminal 4 - EKF
+
+```bash
+source /opt/ros/jazzy/setup.bash
+cd ~/bgr_ws
+source install/setup.bash
+ros2 run ekf_project run_simulation --ros-args -p use_sim_time:=true
+```
+
 ---
 
-## 🔧 Troubleshooting
+### Check in another terminal
 
-**Robot not moving?** Ensure you ran Step 2 (Controllers). The robot won't respond to commands if the controllers aren't spawned.
+Expect:
 
-**Missing Models?** Ensure the environment variable `GZ_SIM_RESOURCE_PATH` is set correctly. The launch file handles this, but if you moved folders manually, check `gazebo.launch.py`.
+- use_sim_time should be true
+- /robot/datalogger_noisy nominal about 50 Hz
+- /robot/mcu_noisy nominal about 50 Hz
+- /robot/estimated_odom should be close to /robot/datalogger_noisy
 
-**Gazebo crashes on VM?** Ensure "Accelerate 3D Graphics" is enabled in your VM settings, or try running with `LIBGL_ALWAYS_SOFTWARE=1` if you lack a GPU.
+```bash
+source /opt/ros/jazzy/setup.bash
+source ~/bgr_ws/install/setup.bash
+ros2 param get /ekf_simulation_runner use_sim_time
+ros2 topic hz /robot/datalogger_noisy
+ros2 topic hz /robot/mcu_noisy
+ros2 topic hz /robot/estimated_odom
+```
 
 ---
 
-**Maintained by:** BGRacing Simulator Team
+### WAIT FOR: `Startup biases applied: ...`
+
+---
+
+## Terminal 5 - Plotter
+
+```bash
+source /opt/ros/jazzy/setup.bash
+source ~/bgr_ws/install/setup.bash
+env -u WAYLAND_DISPLAY QT_QPA_PLATFORM=xcb \
+  ros2 run ekf_project live_rmse_plotter --ros-args -p use_sim_time:=true
+```
+
+---
+
+## Terminal 6 - start path tracker only after startup bias message
+
+```bash
+source /opt/ros/jazzy/setup.bash
+source ~/bgr_ws/install/setup.bash
+ros2 launch autonomous_car_sim autonomous_car.launch.py
+```
