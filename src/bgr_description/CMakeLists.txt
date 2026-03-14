@@ -1,0 +1,44 @@
+cmake_minimum_required(VERSION 3.8)
+project(bgr_description)
+
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
+find_package(ament_cmake REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
+
+# Generate message interfaces
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/CarPose.msg"
+  "msg/Cone.msg"
+  "srv/GetTrack.srv"
+)
+
+# Export typesupport runtime dependency
+ament_export_dependencies(rosidl_default_runtime)
+
+# Install description files (meshes, urdf, launch, rviz)
+install(DIRECTORY meshes urdf launch rviz worlds config
+  DESTINATION share/${PROJECT_NAME}
+)
+
+if(BUILD_TESTING)
+  find_package(ament_lint_auto REQUIRED)
+  set(ament_cmake_copyright_FOUND TRUE)
+  set(ament_cmake_cpplint_FOUND TRUE)
+  ament_lint_auto_find_test_dependencies()
+endif()
+
+install(PROGRAMS
+  car_wheel_publisher.py
+  car_state_publisher.py
+  noisy_sensor_publisher.py
+  ekf_publisher.py
+  car_dashboard.py
+  cone_service.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+
+ament_package()
