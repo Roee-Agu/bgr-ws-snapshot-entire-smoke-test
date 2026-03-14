@@ -1,9 +1,15 @@
-.vscode/
+# Python cache
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
-# Optional OS junk
+# VSCode
+.vscode/
+
+# Windows metadata junk
+*Zone.Identifier
+
+# OS junk
 .DS_Store
 Thumbs.db
